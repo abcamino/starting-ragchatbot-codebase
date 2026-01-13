@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chatbot - Query Flow Diagram</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8892b0;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        #diagram {
+            background: #0f0f1a;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+
+        .node rect {
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .node:hover rect {
+            filter: brightness(1.2);
+        }
+
+        .node text {
+            font-size: 12px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        .node .subtitle-text {
+            font-size: 9px;
+            font-weight: 400;
+            opacity: 0.8;
+        }
+
+        .link {
+            fill: none;
+            stroke-width: 2.5px;
+        }
+
+        .link-animated {
+            stroke-dasharray: 8, 4;
+            animation: flow 1s linear infinite;
+        }
+
+        @keyframes flow {
+            from { stroke-dashoffset: 12; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        .arrow {
+            fill: #64ffda;
+        }
+
+        .legend {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(15, 15, 26, 0.95);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #2d2d44;
+        }
+
+        .legend h3 {
+            color: #fff;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+            color: #8892b0;
+            font-size: 0.8rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            max-width: 300px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            border: 1px solid #64ffda;
+            z-index: 1000;
+        }
+
+        .tooltip h4 {
+            color: #64ffda;
+            margin-bottom: 6px;
+        }
+
+        .tooltip code {
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <h1>RAG Chatbot - Query Flow Architecture</h1>
+    <p class="subtitle">Interactive visualization of the query processing pipeline from Frontend to Backend</p>
+    <div id="diagram"></div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="legend">
+        <h3>Components</h3>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #e91e63;"></div>
+            <span>User Interface</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #2196f3;"></div>
+            <span>Frontend</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #4caf50;"></div>
+            <span>API Layer</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff9800;"></div>
+            <span>RAG System</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #9c27b0;"></div>
+            <span>AI / Claude</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00bcd4;"></div>
+            <span>Search & Vector DB</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #607d8b;"></div>
+            <span>Session Management</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const width = window.innerWidth - 40;
+        const height = 900;
+        const nodeWidth = 180;
+        const nodeHeight = 70;
+
+        // Node definitions with positions and metadata
+        const nodes = [
+            {
+                id: "user",
+                label: "USER",
+                subtitle: "Types query",
+                x: width / 2,
+                y: 50,
+                color: "#e91e63",
+                file: null,
+                description: "The user types a question in the chat input field and clicks send or presses Enter."
+            },
+            {
+                id: "frontend",
+                label: "FRONTEND",
+                subtitle: "script.js",
+                x: width / 2,
+                y: 150,
+                color: "#2196f3",
+                file: "frontend/script.js",
+                description: "sendMessage() captures user input, displays it in the UI, and sends a POST request to /api/query with the query and session_id."
+            },
+            {
+                id: "api",
+                label: "API LAYER",
+                subtitle: "app.py",
+                x: width / 2,
+                y: 250,
+                color: "#4caf50",
+                file: "backend/app.py",
+                description: "FastAPI endpoint POST /api/query receives the request, creates/retrieves session, calls rag_system.query(), and returns the response."
+            },
+            {
+                id: "rag",
+                label: "RAG SYSTEM",
+                subtitle: "rag_system.py",
+                x: width / 2,
+                y: 350,
+                color: "#ff9800",
+                file: "backend/rag_system.py",
+                description: "Orchestrates the query: builds prompt, retrieves conversation history, calls AI generator with tools, extracts sources, and saves the exchange."
+            },
+            {
+                id: "ai_generator",
+                label: "AI GENERATOR",
+                subtitle: "ai_generator.py",
+                x: width / 2,
+                y: 450,
+                color: "#9c27b0",
+                file: "backend/ai_generator.py",
+                description: "Prepares system prompt with history, calls Claude API with tool definitions, handles tool execution if needed, returns final response."
+            },
+            {
+                id: "claude",
+                label: "CLAUDE API",
+                subtitle: "claude-sonnet-4-20250514",
+                x: width / 2,
+                y: 550,
+                color: "#9c27b0",
+                file: null,
+                description: "Anthropic's Claude model receives the query and decides whether to answer directly or use the search_course_content tool."
+            },
+            {
+                id: "decision",
+                label: "DECISION",
+                subtitle: "Tool use?",
+                x: width / 2,
+                y: 650,
+                color: "#ffeb3b",
+                textColor: "#000",
+                file: null,
+                description: "Claude decides: Use search tool for course-specific questions, or answer directly for general questions."
+            },
+            {
+                id: "direct_answer",
+                label: "DIRECT ANSWER",
+                subtitle: "No tool needed",
+                x: width / 2 - 200,
+                y: 750,
+                color: "#8bc34a",
+                file: null,
+                description: "For general questions not requiring course content, Claude responds directly using its knowledge."
+            },
+            {
+                id: "search_tool",
+                label: "SEARCH TOOL",
+                subtitle: "search_tools.py",
+                x: width / 2 + 200,
+                y: 750,
+                color: "#00bcd4",
+                file: "backend/search_tools.py",
+                description: "CourseSearchTool.execute() is called with query, optional course_name, and lesson_number. Calls vector store and formats results."
+            },
+            {
+                id: "vector_store",
+                label: "VECTOR STORE",
+                subtitle: "vector_store.py",
+                x: width / 2 + 200,
+                y: 850,
+                color: "#00bcd4",
+                file: "backend/vector_store.py",
+                description: "VectorStore.search() resolves course names semantically, builds filters, queries ChromaDB with embeddings (all-MiniLM-L6-v2)."
+            },
+            {
+                id: "chromadb",
+                label: "CHROMADB",
+                subtitle: "./chroma_db",
+                x: width / 2 + 400,
+                y: 850,
+                color: "#00bcd4",
+                file: null,
+                description: "Persistent vector database with two collections: course_catalog (metadata) and course_content (chunked content with embeddings)."
+            },
+            {
+                id: "session",
+                label: "SESSION MGR",
+                subtitle: "session_manager.py",
+                x: width / 2 - 200,
+                y: 350,
+                color: "#607d8b",
+                file: "backend/session_manager.py",
+                description: "Manages conversation history per session. Stores user/assistant exchanges, limits to MAX_HISTORY exchanges for context window."
+            }
+        ];
+
+        // Link definitions
+        const links = [
+            { source: "user", target: "frontend", label: "Input" },
+            { source: "frontend", target: "api", label: "POST /api/query" },
+            { source: "api", target: "rag", label: "query()" },
+            { source: "rag", target: "ai_generator", label: "generate_response()" },
+            { source: "rag", target: "session", label: "get/save history", bidirectional: true },
+            { source: "ai_generator", target: "claude", label: "API call" },
+            { source: "claude", target: "decision", label: "" },
+            { source: "decision", target: "direct_answer", label: "No" },
+            { source: "decision", target: "search_tool", label: "Yes" },
+            { source: "search_tool", target: "vector_store", label: "search()" },
+            { source: "vector_store", target: "chromadb", label: "query()" },
+            { source: "chromadb", target: "vector_store", label: "results", reverse: true },
+            { source: "vector_store", target: "search_tool", label: "SearchResults", reverse: true },
+            { source: "search_tool", target: "claude", label: "tool_result", reverse: true, curved: true },
+            { source: "direct_answer", target: "rag", label: "response", reverse: true, curved: true },
+            { source: "rag", target: "api", label: "(answer, sources)", reverse: true },
+            { source: "api", target: "frontend", label: "JSON response", reverse: true },
+            { source: "frontend", target: "user", label: "Display", reverse: true }
+        ];
+
+        // Create SVG
+        const svg = d3.select("#diagram")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Define arrow markers
+        svg.append("defs").selectAll("marker")
+            .data(["arrow", "arrow-reverse"])
+            .enter()
+            .append("marker")
+            .attr("id", d => d)
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 8)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("class", "arrow");
+
+        // Create node map for easy lookup
+        const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+        // Draw links
+        const linkGroup = svg.append("g").attr("class", "links");
+
+        links.forEach(link => {
+            const source = nodeMap.get(link.source);
+            const target = nodeMap.get(link.target);
+
+            let path;
+            const color = link.reverse ? "#64ffda" : "#64ffda";
+
+            if (link.curved) {
+                // Curved path for return flows
+                const midX = (source.x + target.x) / 2;
+                const midY = (source.y + target.y) / 2;
+                const offset = link.source === "search_tool" ? 100 : -100;
+
+                path = linkGroup.append("path")
+                    .attr("class", "link link-animated")
+                    .attr("d", `M${source.x},${source.y - nodeHeight/2}
+                               Q${source.x + offset},${midY}
+                               ${target.x},${target.y + nodeHeight/2}`)
+                    .attr("stroke", color)
+                    .attr("marker-end", "url(#arrow)");
+            } else if (source.y === target.y) {
+                // Horizontal link
+                const startX = source.x + (source.x < target.x ? nodeWidth/2 : -nodeWidth/2);
+                const endX = target.x + (source.x < target.x ? -nodeWidth/2 : nodeWidth/2);
+
+                path = linkGroup.append("path")
+                    .attr("class", "link link-animated")
+                    .attr("d", `M${startX},${source.y} L${endX},${target.y}`)
+                    .attr("stroke", color)
+                    .attr("marker-end", "url(#arrow)");
+            } else {
+                // Vertical link
+                const startY = source.y + nodeHeight/2;
+                const endY = target.y - nodeHeight/2;
+
+                if (link.reverse) {
+                    path = linkGroup.append("path")
+                        .attr("class", "link link-animated")
+                        .attr("d", `M${source.x - 20},${source.y - nodeHeight/2}
+                                   L${source.x - 20},${(source.y + target.y)/2}
+                                   L${target.x - 20},${(source.y + target.y)/2}
+                                   L${target.x - 20},${target.y + nodeHeight/2}`)
+                        .attr("stroke", "#ff6b6b")
+                        .attr("marker-end", "url(#arrow-reverse)");
+                } else {
+                    path = linkGroup.append("path")
+                        .attr("class", "link link-animated")
+                        .attr("d", `M${source.x},${startY} L${target.x},${endY}`)
+                        .attr("stroke", color)
+                        .attr("marker-end", "url(#arrow)");
+                }
+            }
+
+            // Add link label
+            if (link.label) {
+                const midX = (source.x + target.x) / 2;
+                const midY = (source.y + target.y) / 2;
+
+                linkGroup.append("text")
+                    .attr("x", midX + (link.reverse ? -30 : 10))
+                    .attr("y", midY)
+                    .attr("fill", "#8892b0")
+                    .attr("font-size", "10px")
+                    .attr("text-anchor", "middle")
+                    .text(link.label);
+            }
+        });
+
+        // Draw nodes
+        const nodeGroup = svg.append("g").attr("class", "nodes");
+        const tooltip = d3.select("#tooltip");
+
+        nodes.forEach(node => {
+            const g = nodeGroup.append("g")
+                .attr("class", "node")
+                .attr("transform", `translate(${node.x - nodeWidth/2}, ${node.y - nodeHeight/2})`);
+
+            // Node rectangle with gradient
+            const gradientId = `gradient-${node.id}`;
+            const gradient = svg.select("defs")
+                .append("linearGradient")
+                .attr("id", gradientId)
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "100%")
+                .attr("y2", "100%");
+
+            gradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", node.color);
+
+            gradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", d3.color(node.color).darker(0.5));
+
+            g.append("rect")
+                .attr("width", nodeWidth)
+                .attr("height", nodeHeight)
+                .attr("rx", 8)
+                .attr("ry", 8)
+                .attr("fill", `url(#${gradientId})`)
+                .attr("stroke", d3.color(node.color).brighter(0.5))
+                .on("mouseover", (event) => {
+                    tooltip.style("opacity", 1)
+                        .html(`
+                            <h4>${node.label}</h4>
+                            ${node.file ? `<p><code>${node.file}</code></p>` : ''}
+                            <p>${node.description}</p>
+                        `)
+                        .style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mousemove", (event) => {
+                    tooltip.style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.style("opacity", 0);
+                });
+
+            // Main label
+            g.append("text")
+                .attr("x", nodeWidth / 2)
+                .attr("y", nodeHeight / 2 - 5)
+                .attr("text-anchor", "middle")
+                .attr("fill", node.textColor || "#fff")
+                .text(node.label);
+
+            // Subtitle
+            g.append("text")
+                .attr("class", "subtitle-text")
+                .attr("x", nodeWidth / 2)
+                .attr("y", nodeHeight / 2 + 12)
+                .attr("text-anchor", "middle")
+                .attr("fill", node.textColor || "#fff")
+                .text(node.subtitle);
+        });
+
+        // Add title for the flow sections
+        const sections = [
+            { y: 30, label: "CLIENT LAYER" },
+            { y: 220, label: "SERVER LAYER" },
+            { y: 520, label: "AI PROCESSING" },
+            { y: 720, label: "DATA RETRIEVAL" }
+        ];
+
+        sections.forEach(section => {
+            svg.append("text")
+                .attr("x", 20)
+                .attr("y", section.y)
+                .attr("fill", "#4a5568")
+                .attr("font-size", "11px")
+                .attr("font-weight", "bold")
+                .attr("letter-spacing", "2px")
+                .text(section.label);
+
+            svg.append("line")
+                .attr("x1", 20)
+                .attr("y1", section.y + 8)
+                .attr("x2", 150)
+                .attr("y2", section.y + 8)
+                .attr("stroke", "#2d3748")
+                .attr("stroke-width", 1);
+        });
+    </script>
+</body>
+</html>
